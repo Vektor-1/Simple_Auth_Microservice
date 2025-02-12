@@ -130,6 +130,14 @@ app.post("/auth/sign-in", async (req, res) => {
     res.status(200).json({ message: "Login successful", token });
 });
 
+app.get("/user/profile", verifyToken(["user", "admin"]), (req, res) => {
+    res.json({ message: `Hello, ${req.user.username}!`, user: req.user });
+});
+
+app.get("/admin/dashboard", verifyToken(["admin"]), (req, res) => {
+    res.json({ message: "Welcome Admin!", user: req.user });
+});
+
 app.post("/auth/sign-out", async (req, res) => {
     const token = req.headers.authorization?.split(" ")[1];
     if (!token) return res.status(401).json({ error: "No token provided" });
