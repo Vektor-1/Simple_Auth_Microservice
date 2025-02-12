@@ -21,14 +21,20 @@ mongoose.connect(process.env.MONGO_URI!)
     .then(() => console.log("MongoDB connected"))
     .catch(err => console.error("MongoDB connection error:", err));
 
-const UserSchema = new mongoose.Schema({
+
+interface IUser extends Document {
+    username: string;
+    password: string;
+    role: "admin" | "user" | "guest";
+    apiKey?: string;
+}
+const UserSchema = new Schema<IUser>({
     username: { type: String, required: true, unique: true },
     password: { type: String, required: true },
-    role: { type: String, required: true, default:"guest" },
-    createdAt: { type: Date, default: Date.now },
+    role: { type: String, enum: ["admin", "user", "guest"], default: "guest" },
     apiKey: { type: String, unique: true, sparse: true },
 });
-const User = mongoose.model("User", UserSchema);
+const User = mongoose.model<IUser>("User", UserSchema);
 
 const redisClient = createClient({
     socket: {
