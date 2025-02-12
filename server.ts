@@ -24,6 +24,8 @@ const UserSchema = new mongoose.Schema({
     username: { type: String, required: true, unique: true },
     password: { type: String, required: true },
     role: { type: String, required: true, default:"guest" },
+    createdAt: { type: Date, default: Date.now },
+    apiKey: { type: String, required: true, unique: true, sparse: true },
 });
 const User = mongoose.model("User", UserSchema);
 
