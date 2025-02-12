@@ -1,7 +1,7 @@
 import "dotenv/config";
 import express from "express";
 import crypto from "crypto";
-import mongoose from "mongoose";
+import mongoose, { Schema, Document } from "mongoose";
 import { createClient } from "redis";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
