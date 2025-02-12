@@ -96,20 +96,26 @@ app.get("/api/protected-data", verifyApiKey, (req, res) => {
 
 app.post("/auth/sign-in", async (req, res) => {
     const { username, password } = req.body;
-    if (!username || !password) return res.status(400).json({ error: "Username and password required" });
+    const redisKey = `login_attempts:${username}`;
 
-    const user = await User.findOne({ username }).lean().explain();
+    // Check login attempts
+    const attempts = await redisClient.get(redisKey);
+    if (attempts && parseInt(attempts) >= 5)
+        return res.status(429).json({ error: "Too many login attempts. Try again later." });
 
-    if (!user || !(await bcrypt.compare(password, user.password)))
+    const user = await User.findOne({ username }).lean();
+    if (!user || !(await bcrypt.compare(password, user.password))) {
+        await redisClient.incr(redisKey);
+        await redisClient.expire(redisKey, 900); // Reset after 15 minutes
         return res.status(401).json({ error: "Invalid credentials" });
+    }
 
-    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET!, { expiresIn: "1h" });
+    await redisClient.del(redisKey); // Reset attempts on success
 
-    // Store session in Redis
-    const sessionId = crypto.randomUUID();
-    await redisClient.setEx(`session:${user._id}`, 3600, sessionId); 
+    const token = jwt.sign({ userId: user._id, role: user.role }, process.env.JWT_SECRET!, { expiresIn: "1h" });
+    await redisClient.setEx(`session:${user._id}`, 3600, token);
 
-    return res.status(200).json({ message: "Login successful", token });
+    res.status(200).json({ message: "Login successful", token });
 });
 
 app.post("/auth/sign-out", async (req, res) => {
