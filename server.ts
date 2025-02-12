@@ -75,12 +75,24 @@ const verifyApiKey = async (req, res, next) => {
     next();
 };
 
-app.post("/auth/sign-up", async (req, res) => {
-    const { username, password } = req.body;
-    if (!username || !password) return res.status(400).json({ error: "Username and password required" });
+app.post("/auth/sign-up", verifyToken(["admin"]), async (req, res) => {
+    const { username, password, role } = req.body;
+
+    if (!username || !password) 
+        return res.status(400).json({ error: "Username and password required" });
+
+    // Ensure the role is valid
+    const validRoles = ["admin", "user", "guest"];
+    if (role && !validRoles.includes(role)) 
+        return res.status(400).json({ error: "Invalid role" });
 
     const hashedPassword = await bcrypt.hash(password, 12);
-    const newUser = await User.create({ username, password: hashedPassword });
+    const newUser = await User.create({ 
+        username, 
+        password: hashedPassword, 
+        role: role || "guest" // Default role is guest
+    });
+
     return res.status(201).json({ message: "User created successfully", user: newUser });
 });
 
