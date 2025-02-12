@@ -1,5 +1,6 @@
 import "dotenv/config";
 import express from "express";
+import crypto from "crypto";
 import mongoose from "mongoose";
 import { createClient } from "redis";
 import bcrypt from "bcrypt";
@@ -25,7 +26,7 @@ const UserSchema = new mongoose.Schema({
     password: { type: String, required: true },
     role: { type: String, required: true, default:"guest" },
     createdAt: { type: Date, default: Date.now },
-    apiKey: { type: String, required: true, unique: true, sparse: true },
+    apiKey: { type: String, unique: true, sparse: true },
 });
 const User = mongoose.model("User", UserSchema);
 
@@ -63,6 +64,17 @@ const verifyToken = (roles = []) => {
     };
 };
 
+const verifyApiKey = async (req, res, next) => {
+    const apiKey = req.headers["x-api-key"];
+    if (!apiKey) return res.status(401).json({ error: "API key required" });
+
+    const user = await User.findOne({ apiKey }).lean();
+    if (!user) return res.status(401).json({ error: "Invalid API key" });
+
+    req.user = user;
+    next();
+};
+
 app.post("/auth/sign-up", async (req, res) => {
     const { username, password } = req.body;
     if (!username || !password) return res.status(400).json({ error: "Username and password required" });
@@ -70,6 +82,16 @@ app.post("/auth/sign-up", async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 12);
     const newUser = await User.create({ username, password: hashedPassword });
     return res.status(201).json({ message: "User created successfully", user: newUser });
+});
+
+app.post("/auth/generate-api-key", verifyToken(["admin"]), async (req, res) => {
+    const apiKey = crypto.randomBytes(32).toString("hex");
+    await User.findByIdAndUpdate(req.user._id, { apiKey });
+    res.json({ message: "API key generated", apiKey });
+});
+
+app.get("/api/protected-data", verifyApiKey, (req, res) => {
+    res.json({ message: "Access granted!", user: req.user });
 });
 
 app.post("/auth/sign-in", async (req, res) => {
